@@ -1,4 +1,4 @@
-# SweetCalc
+# Sweet Calc
 
 This is a handy **CLI** calculator for doing quick calculations with **custom operators** and some **syntax sugar**.
 
@@ -96,7 +96,7 @@ error at position 5:
 
 ## Installation
 ```bash
-$ git clone git@github.com:MarcosTypeAP/sweetcalc.git --depth=1
+$ git clone git@github.com:MarcosTypeAP/sweet-calc.git --depth=1
 $ cd sweetcalc
 
 $ make build # Must have Go installed
