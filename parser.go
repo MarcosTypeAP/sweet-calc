@@ -105,6 +105,13 @@ func newParserNodeNumber(number float64, token lexerToken) *parserNode {
 	}
 }
 
+func newParserNodeSymbol(token lexerToken) *parserNode {
+	return &parserNode{
+		kind:  tokenKindSymbol,
+		token: token,
+	}
+}
+
 type parser struct {
 	tokens []lexerToken
 	idx    int
@@ -207,20 +214,25 @@ func (p *parser) parsePrimary() (*parserNode, error) {
 		return nil, p.newError("expression expected")
 	}
 
-	if p.peek().kind == tokenKindBracketOpen {
+	switch p.peek().kind {
+	case tokenKindBracketOpen:
 		p.consume()
 		return p.parse(true, 0)
+
+	case tokenKindNumber:
+		token := p.consume()
+		number, err := strconv.ParseFloat(token.text, 64)
+		if err != nil {
+			return nil, p.newError(fmt.Sprintf("parsing number: %v", err))
+		}
+		node := newParserNodeNumber(number, token)
+		return node, nil
+
+	case tokenKindSymbol:
+		node := newParserNodeSymbol(p.consume())
+        return node, nil
 	}
-	if p.peek().kind != tokenKindNumber {
-		return nil, p.newError("number expected")
-	}
-	token := p.consume()
-	number, err := strconv.ParseFloat(token.text, 64)
-	if err != nil {
-		return nil, p.newError(fmt.Sprintf("parsing number: %s", err))
-	}
-	node := newParserNodeNumber(number, token)
-	return node, nil
+	return nil, p.newError("expression expected")
 }
 
 func ParseTokens(tokens []lexerToken) (*parserNode, error) {

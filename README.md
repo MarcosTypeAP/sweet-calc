@@ -30,6 +30,25 @@ $ c
 - `**` Power
 - `v` Root (eg: sqrt(9) = 2v9)
 
+### Variables
+
+Variable names must start with a letter and can only contain alphanumeric characters and `_`
+```bash
+foo = 2+2
+= 4
+
+foo = foo+foo
+= 8
+
+2+foo
+= 10
+
+foo*foo
+= 64
+
+snake_case_69 = foo
+= 8
+```
 ### Syntax sugar
 ```python
 # Space significant
@@ -62,12 +81,12 @@ $ c '1+1 1+1'
 error at position 2:
     preprocessor: token: 3: two consecutive operands without operator
     
- $ c '1+1A0'
+ $ c '1+1* bar+1'
 
-    1+1A0
-       ^
-error at position 3:
-    lexer: char 3: unexpected character
+    1+1*(bar+1)
+         ^^^
+error at position 5:
+    eval tree: undefined variable: "bar"
 ```
 
 ## Installation

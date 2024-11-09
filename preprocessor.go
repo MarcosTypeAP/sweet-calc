@@ -8,6 +8,7 @@ import (
 type preprocessor struct {
 	inTokens  []lexerToken
 	outTokens []lexerToken
+	firstPos  int
 	idx       int
 }
 
@@ -18,9 +19,14 @@ func newPreprocessor(tokens []lexerToken) preprocessor {
 			spaceCount++
 		}
 	}
+	firstPos := 0
+	if len(tokens) > 0 {
+		firstPos = tokens[0].pos
+	}
 	return preprocessor{
 		inTokens:  tokens,
 		outTokens: make([]lexerToken, 0, len(tokens)+spaceCount*2), // + brackets
+		firstPos:  firstPos,
 	}
 }
 
@@ -65,14 +71,6 @@ func (p *preprocessor) newError(msg string) parsingError {
 	}
 	token := p.peek()
 	return newParsingError(fmt.Sprintf("preprocessor: token %d: %s", p.idx, msg), token.pos, token.size())
-}
-
-func (p *preprocessor) recalcPositions() {
-	nextPos := 0
-	for i := range p.outTokens {
-		p.outTokens[i].pos = nextPos
-		nextPos += p.outTokens[i].size()
-	}
 }
 
 func (p *preprocessor) expandSpace() {
@@ -164,7 +162,7 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		p.addToken(p.consume())
 	}
 
-	p.recalcPositions()
+	recalcPositions(p.outTokens, p.firstPos)
 
 	return p.outTokens, nil
 }
