@@ -14,9 +14,14 @@ $ c 1+1
 
 # Or interactively as REPL
 $ c
+Sweet Calculator REPL
 1+1
 = 2
-45+24
+
+bar=24;45+bar
+= bar = 24
+= 24
+
 = 69
 ```
 ### Operators
@@ -28,7 +33,7 @@ $ c
 - `/` Division
 - `//` Floor Division
 - `**` Power
-- `v` Root (eg: sqrt(9) = 2v9)
+- `v` Root (eg: `sqrt(9)` = `2v9`)
 
 ### Variables
 
@@ -68,7 +73,7 @@ snake_case_69 = foo
 = 4
 
 # Optional closing brackets
-2/(1+1
+8/(1+1
 = 4
 ```
 ### Errors
@@ -94,7 +99,7 @@ error at position 5:
 $ git clone git@github.com:MarcosTypeAP/sweetcalc.git --depth=1
 $ cd sweetcalc
 
-$ make build
+$ make build # Must have Go installed
 
 $ ./build/c '1+1'
 = 2
