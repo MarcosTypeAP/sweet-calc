@@ -230,6 +230,7 @@ func main() {
 
 	buf := bytes.Buffer{}
 	for {
+		fmt.Print("> ")
 		byteBuf := []byte{0}
 		for byteBuf[0] != '\n' {
 			_, err := os.Stdin.Read(byteBuf)

@@ -15,10 +15,10 @@ $ c 1+1
 # Or interactively as REPL
 $ c
 Sweet Calculator REPL
-1+1
+> 1+1
 = 2
 
-bar=24;45+bar
+> bar=24;45+bar
 = bar = 24
 = 24
 
@@ -39,41 +39,41 @@ bar=24;45+bar
 
 Variable names must start with a letter and can only contain alphanumeric characters and `_`
 ```bash
-foo = 2+2
+> foo = 2+2
 = 4
 
-foo = foo+foo
+> foo = foo+foo
 = 8
 
-2+foo
+> 2+foo
 = 10
 
-foo*foo
+> foo*foo
 = 64
 
-snake_case_69 = foo
+> snake_case_69 = foo
 = 8
 ```
 ### Syntax sugar
 ```python
 # Space significant
-1+1 *2
+> 1+1 *2
 = (1+1)*2
 = 4
 
-1+1* 2* 4
+> 1+1* 2* 4
 = 1+1*(2*(4))
 = 9
 
 # Multiplication when next to bracket
-2(1+1)
+> 2(1+1)
 = 4
 
-(1+1)(1+1)
+> (1+1)(1+1)
 = 4
 
 # Optional closing brackets
-8/(1+1
+> 8/(1+1
 = 4
 ```
 ### Errors
