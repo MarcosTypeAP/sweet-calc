@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strings"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
@@ -377,18 +376,17 @@ func main() {
 		return
 	}
 
-	os.Stdin.SetReadDeadline(time.Now().Add(time.Millisecond))
-	{
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		panic(fmt.Errorf("error getting stdin stat: %w", err))
+	}
+	if stat.Mode()&os.ModeCharDevice == 0 {
 		input, err := io.ReadAll(os.Stdin)
 		if err == nil {
 			processInput(input, vars, false)
 			return
 		}
-		if !errors.Is(err, os.ErrDeadlineExceeded) {
-			fmt.Println("Error reading stdin: %w", err)
-		}
 	}
-	os.Stdin.SetReadDeadline(time.Time{})
 
 	termOriginal := getTermios()
 	defer setTermios(termOriginal)
