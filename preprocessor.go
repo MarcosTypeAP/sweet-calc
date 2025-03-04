@@ -79,7 +79,7 @@ func (p *preprocessor) expandSpace() {
 	if prev == tokenKindBracketOpen {
 		return
 	}
-	if prev == tokenKindOperator {
+	if prev == tokenKindOperator || prev == tokenKindFunction {
 		p.addToken(lexerToken{kind: tokenKindBracketOpen, text: "("})
 		openBrackets := 0
 	Loop:
@@ -93,7 +93,7 @@ func (p *preprocessor) expandSpace() {
 				}
 				openBrackets--
 			case tokenKindSpace:
-				if openBrackets == 0 && p.prev().kind != tokenKindOperator {
+				if openBrackets == 0 && p.prev().kind != tokenKindOperator && p.prev().kind != tokenKindFunction {
 					break Loop
 				}
 				p.expandSpace()
@@ -136,6 +136,28 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		return nil, fmt.Errorf("preprocessor: empty input")
 	}
 
+	// merge "-" with the number next to it if it isn't a subtraction
+	for i := 0; i < len(p.inTokens)-1; i++ {
+		prev := lexerToken{kind: tokenKindInvalid}
+		if i > 0 {
+			prev = p.inTokens[i-1]
+		}
+		curr := p.inTokens[i]
+		next := p.inTokens[i+1]
+		if curr.text != "-" {
+			continue
+		}
+		if next.kind != tokenKindNumber {
+			continue
+		}
+		if prev.kind == tokenKindNumber {
+			continue
+		}
+		p.inTokens[i+1].text = "-" + next.text
+		p.inTokens = slices.Delete(p.inTokens, i, i+1)
+	}
+
+	// check two numbers have operator in between
 	for i := 1; i < len(p.inTokens)-1; i++ {
 		if p.inTokens[i].kind != tokenKindSpace {
 			continue
@@ -143,6 +165,7 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		prev := p.inTokens[i-1]
 		next := p.inTokens[i+1]
 		if prev.kind == tokenKindNumber && next.kind == tokenKindNumber {
+			recalcPositions(p.inTokens, p.firstPos)
 			return nil, newParsingError(
 				fmt.Sprintf("preprocessor: token: %d: two consecutive operands without operator", i),
 				prev.pos,
@@ -151,8 +174,49 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		}
 	}
 
-	if token := p.consume(); token.kind != tokenKindSpace {
-		p.addToken(token)
+	// check there isn't two operators in a row
+	// simplify "-"s
+	for i := 0; i < len(p.inTokens)-1; i++ {
+		curr := p.inTokens[i]
+		nextIdx := i + 1
+		next := p.inTokens[nextIdx]
+		if curr.kind != tokenKindOperator {
+			continue
+		}
+		if next.kind == tokenKindSpace {
+			if i+2 > len(p.inTokens)-1 {
+				break
+			}
+			nextIdx = i + 2
+			next = p.inTokens[nextIdx]
+		}
+		if next.kind == tokenKindOperator {
+			if curr.text == "-" && next.text == "-" {
+				p.inTokens = slices.Delete(p.inTokens, i, nextIdx+1)
+				continue
+			}
+			recalcPositions(p.inTokens, p.firstPos)
+			return nil, newParsingError(
+				fmt.Sprintf("preprocessor: token: %d: two consecutive operators", i),
+				curr.pos,
+				next.pos+next.size()-curr.pos,
+			)
+		}
+	}
+
+	// remove spaces in a row (due to previous steps)
+	for i := 0; i < len(p.inTokens)-2; i++ {
+		curr := p.inTokens[i]
+		next := p.inTokens[i+1]
+		if curr.kind == tokenKindSpace && next.kind == tokenKindSpace {
+			p.inTokens = slices.Delete(p.inTokens, i, (i+1)+1)
+		}
+	}
+
+	if p.hasNext() {
+		if token := p.consume(); token.kind != tokenKindSpace {
+			p.addToken(token)
+		}
 	}
 	for p.hasNext() {
 		if p.peek().kind == tokenKindSpace {

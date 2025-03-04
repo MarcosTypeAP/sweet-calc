@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 )
 
 type operator struct {
@@ -67,47 +68,151 @@ var (
 		symbol:     "//",
 	}
 	opRoot = operator{
-		operation:  func(lhs float64, rhs float64) (float64, error) { return math.Pow(rhs, 1/lhs), nil },
+		operation: func(lhs float64, rhs float64) (float64, error) {
+			res := math.Pow(rhs, 1/lhs)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("%vv%v = NaN", lhs, rhs)
+			}
+			return res, nil
+		},
 		precedence: 3,
 		symbol:     "v",
 	}
 	opPower = operator{
-		operation:  func(lhs float64, rhs float64) (float64, error) { return math.Pow(lhs, rhs), nil },
+		operation: func(lhs float64, rhs float64) (float64, error) {
+			res := math.Pow(lhs, rhs)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("%v**%v = NaN", lhs, rhs)
+			}
+			return res, nil
+		},
 		precedence: 3,
 		symbol:     "**",
 	}
 )
 
-type parserNode struct {
-	number float64
-	op     *operator
-	lhs    *parserNode
-	rhs    *parserNode
-	token  lexerToken
-	kind   tokenKind
+const FunctionPrecedence = 100
+
+type function struct {
+	fn     func(arg float64) (float64, error)
+	symbol string
 }
 
-func newParserNodeOperation(op *operator, lhs, rhs *parserNode, token lexerToken) *parserNode {
+var (
+	fnSin function = function{
+		fn: func(x float64) (float64, error) {
+			res := math.Sin(x)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("sin(%v) = NaN", x)
+			}
+			return res, nil
+		},
+		symbol: "sin",
+	}
+	fnCos function = function{
+		fn: func(x float64) (float64, error) {
+			res := math.Cos(x)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("cos(%v) = NaN", x)
+			}
+			return res, nil
+		},
+		symbol: "cos",
+	}
+	fnTan function = function{
+		fn: func(x float64) (float64, error) {
+			res := math.Tan(x)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("tan(%v) = NaN", x)
+			}
+			return res, nil
+		},
+		symbol: "tan",
+	}
+	fnAsin function = function{
+		fn: func(x float64) (float64, error) {
+			res := math.Asin(x)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("asin(%v) = NaN", x)
+			}
+			return res, nil
+		},
+		symbol: "asin",
+	}
+	fnAcos function = function{
+		fn: func(x float64) (float64, error) {
+			res := math.Acos(x)
+			if math.IsNaN(res) {
+				return 0, fmt.Errorf("acos(%v) = NaN", x)
+			}
+			return res, nil
+		},
+		symbol: "acos",
+	}
+	fnAtan function = function{
+		fn: func(x float64) (float64, error) {
+			return math.Atan(x), nil
+		},
+		symbol: "atan",
+	}
+)
+
+type parserNode struct {
+	data  any
+	token lexerToken
+}
+
+type nodeKindOperation struct {
+	op  operator
+	lhs *parserNode
+	rhs *parserNode
+}
+
+func newParserNodeOperation(token lexerToken, op operator, lhs, rhs *parserNode) *parserNode {
 	return &parserNode{
-		op:    op,
-		lhs:   lhs,
-		rhs:   rhs,
-		kind:  tokenKindOperation,
+		data: nodeKindOperation{
+			op:  op,
+			lhs: lhs,
+			rhs: rhs,
+		},
 		token: token,
 	}
 }
 
-func newParserNodeNumber(number float64, token lexerToken) *parserNode {
+type nodeKindFunction struct {
+	fn  function
+	arg *parserNode
+}
+
+func newParserNodeFunction(token lexerToken, fn function, arg *parserNode) *parserNode {
 	return &parserNode{
-		number: number,
-		kind:   tokenKindNumber,
-		token:  token,
+		data: nodeKindFunction{
+			fn:  fn,
+			arg: arg,
+		},
+		token: token,
 	}
+}
+
+type nodeKindNumber struct {
+	number float64
+}
+
+func newParserNodeNumber(token lexerToken, number float64) *parserNode {
+	return &parserNode{
+		data: nodeKindNumber{
+			number: number,
+		},
+		token: token,
+	}
+}
+
+type nodeKindSymbol struct {
 }
 
 func newParserNodeSymbol(token lexerToken) *parserNode {
 	return &parserNode{
-		kind:  tokenKindSymbol,
+		data:  nodeKindSymbol{},
 		token: token,
 	}
 }
@@ -173,19 +278,19 @@ func (p *parser) parse(inBrackets bool, minPrecedence int) (*parserNode, error) 
 			return lhs, nil
 		}
 
-		var op *operator
+		var op operator
 		opToken := p.peek()
 
 		switch opToken.kind {
 		case tokenKindOperator:
 			op = parseOperator(p.peek().text)
 		case tokenKindBracketOpen:
-			op = &opMultiplication
+			op = opMultiplication
 		case tokenKindNumber:
 			if p.lastToken().kind != tokenKindBracketClose {
 				return nil, p.newError("operator expected")
 			}
-			op = &opMultiplication
+			op = opMultiplication
 		default:
 			return nil, p.newError("operator expected")
 		}
@@ -203,10 +308,15 @@ func (p *parser) parse(inBrackets bool, minPrecedence int) (*parserNode, error) 
 			return nil, err
 		}
 
-		lhs = newParserNodeOperation(op, lhs, rhs, opToken)
+		lhs = newParserNodeOperation(opToken, op, lhs, rhs)
 	}
 
 	return lhs, nil
+}
+
+func parseNumber(text string) (float64, error) {
+	text = strings.ReplaceAll(text, "_", "")
+	return strconv.ParseFloat(text, 64)
 }
 
 func (p *parser) parsePrimary() (*parserNode, error) {
@@ -221,16 +331,25 @@ func (p *parser) parsePrimary() (*parserNode, error) {
 
 	case tokenKindNumber:
 		token := p.consume()
-		number, err := strconv.ParseFloat(token.text, 64)
+		number, err := parseNumber(token.text)
 		if err != nil {
 			return nil, p.newError(fmt.Sprintf("parsing number: %v", err))
 		}
-		node := newParserNodeNumber(number, token)
+		node := newParserNodeNumber(token, number)
 		return node, nil
 
 	case tokenKindSymbol:
 		node := newParserNodeSymbol(p.consume())
-        return node, nil
+		return node, nil
+
+	case tokenKindFunction:
+		token := p.consume()
+		arg, err := p.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		node := newParserNodeFunction(token, parseFunction(token.text), arg)
+		return node, nil
 	}
 	return nil, p.newError("expression expected")
 }
@@ -244,24 +363,42 @@ func ParseTokens(tokens []lexerToken) (*parserNode, error) {
 	return tree, nil
 }
 
-func parseOperator(text string) *operator {
+func parseOperator(text string) operator {
 	switch text {
 	case opAddition.symbol:
-		return &opAddition
+		return opAddition
 	case opSubtraction.symbol:
-		return &opSubtraction
+		return opSubtraction
 	case opMultiplication.symbol:
-		return &opMultiplication
+		return opMultiplication
 	case opDivision.symbol:
-		return &opDivision
+		return opDivision
 	case opFloorDivision.symbol:
-		return &opFloorDivision
+		return opFloorDivision
 	case opModulo.symbol:
-		return &opModulo
+		return opModulo
 	case opRoot.symbol:
-		return &opRoot
+		return opRoot
 	case opPower.symbol:
-		return &opPower
+		return opPower
 	}
 	panic("unexpected operator")
+}
+
+func parseFunction(text string) function {
+	switch text {
+	case fnSin.symbol:
+		return fnSin
+	case fnCos.symbol:
+		return fnCos
+	case fnTan.symbol:
+		return fnTan
+	case fnAsin.symbol:
+		return fnAsin
+	case fnAcos.symbol:
+		return fnAcos
+	case fnAtan.symbol:
+		return fnAtan
+	}
+	panic("unexpected function")
 }

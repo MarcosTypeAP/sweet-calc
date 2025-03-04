@@ -34,7 +34,7 @@ const (
 	tokenKindSymbol
 	tokenKindNumber
 	tokenKindOperator
-	tokenKindOperation
+	tokenKindFunction
 )
 
 func (t tokenKind) String() string {
@@ -57,8 +57,8 @@ func (t tokenKind) String() string {
 		return "kindNumber"
 	case tokenKindOperator:
 		return "kindOperator"
-	case tokenKindOperation:
-		return "kindOperation"
+	case tokenKindFunction:
+		return "kindFunction"
 	}
 	panic("not implemented")
 }
@@ -103,6 +103,18 @@ func (l *lexer) consume() byte {
 	return b
 }
 
+func isNumber(char byte) bool {
+	return '0' <= char && char <= '9'
+}
+
+func isAlpha(char byte) bool {
+	return ('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z')
+}
+
+func isAlphanumeric(char byte) bool {
+	return ('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z') || '0' <= char && char <= '9'
+}
+
 func (l *lexer) lexNumber() {
 	s := l.idx
 
@@ -111,22 +123,22 @@ func (l *lexer) lexNumber() {
 	}
 	if l.hasNext() && l.peek() == '.' {
 		l.consume()
-		for l.hasNext() && ('0' <= l.peek() && l.peek() <= '9') {
+		for l.hasNext() && isNumber(l.peek()) {
 			l.consume()
 		}
 	} else {
-		for l.hasNext() && ('0' <= l.peek() && l.peek() <= '9') {
+		for l.hasNext() && (isNumber(l.peek()) || l.peek() == '_') {
 			l.consume()
 		}
 		if l.hasNext() && l.peek() == '.' {
 			l.consume()
-			for l.hasNext() && ('0' <= l.peek() && l.peek() <= '9') {
+			for l.hasNext() && isNumber(l.peek()) {
 				l.consume()
 			}
 		}
 	}
 
-	l.newToken(tokenKindNumber, s, string(l.input[s:l.idx]))
+	l.addToken(tokenKindNumber, s, string(l.input[s:l.idx]))
 }
 
 func (l *lexer) lexAlphanumeric() {
@@ -134,14 +146,14 @@ func (l *lexer) lexAlphanumeric() {
 
 	for l.hasNext() {
 		ch := l.peek()
-		if ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ('0' <= ch && ch <= '9') || ch == '_' {
+		if isAlphanumeric(ch) || ch == '_' {
 			l.consume()
 			continue
 		}
 		break
 	}
 
-	l.newToken(tokenKindSymbol, s, string(l.input[s:l.idx]))
+	l.addToken(tokenKindSymbol, s, string(l.input[s:l.idx]))
 }
 
 func (l *lexer) lexSpace() {
@@ -149,16 +161,31 @@ func (l *lexer) lexSpace() {
 	for l.hasNext() && l.peek() == ' ' {
 		l.consume()
 	}
-	l.newToken(tokenKindSpace, s, " ")
+	l.addToken(tokenKindSpace, s, " ")
 }
 
-func (l *lexer) newToken(kind tokenKind, pos int, text string) {
+func (l *lexer) lexFunction(name string) (found bool) {
+	consumed := 0
+	for l.hasNext() && consumed < len(name) && l.peek() == name[consumed] {
+		l.consume()
+		consumed++
+	}
+	if consumed == len(name) && (!l.hasNext() || !isAlphanumeric(l.peek())) {
+		l.addToken(tokenKindFunction, l.idx-len(name), name)
+		return true
+	}
+	for range consumed {
+		l.backup()
+	}
+	return false
+}
+
+func (l *lexer) addToken(kind tokenKind, pos int, text string) {
 	l.tokens = append(l.tokens, newLexerToken(kind, pos, text))
 }
 
-func (l *lexer) newTokenConsume(kind tokenKind) {
-	l.tokens = append(l.tokens, newLexerToken(kind, l.idx, string(l.peek())))
-	l.consume()
+func (l *lexer) addTokenConsume(kind tokenKind) {
+	l.tokens = append(l.tokens, newLexerToken(kind, l.idx, string(l.consume())))
 }
 
 func (l *lexer) newError(msg string) parsingError {
@@ -168,74 +195,83 @@ func (l *lexer) newError(msg string) parsingError {
 func (l *lexer) tokenize() ([]lexerToken, error) {
 	for l.hasNext() {
 		ch := l.peek()
-		if ch == '-' {
-			lastTokenKind := tokenKindInvalid
-			if len(l.tokens) > 0 {
-				lastTokenKind = l.tokens[len(l.tokens)-1].kind
-			}
-			if lastTokenKind == tokenKindOperator || lastTokenKind == tokenKindBracketOpen || lastTokenKind == tokenKindInvalid {
-				l.lexNumber()
-				continue
-			}
-		}
-		if ('0' <= ch && ch <= '9') || ch == '.' {
+
+		if isNumber(ch) || ch == '.' {
 			l.lexNumber()
 			continue
 		}
-		if ch == 'v' {
+
+		switch ch {
+		case 'v':
 			l.consume()
-			if !l.hasNext() {
-				l.backup()
-			} else {
-				next := l.peek()
-				l.backup()
-				if ('a' <= next && next <= 'z') || ('A' <= next && next <= 'Z') {
-					l.lexAlphanumeric()
-					continue
-				}
+			if !l.hasNext() || !isAlpha(l.peek()) {
+				l.addToken(tokenKindOperator, l.idx-1, "v")
+				continue
 			}
-		} else {
-			if ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') {
-				l.lexAlphanumeric()
+			l.backup()
+			l.lexAlphanumeric()
+		case 's':
+			if l.lexFunction("sin") {
+				continue
+			}
+		case 'c':
+			if l.lexFunction("cos") {
+				continue
+			}
+		case 't':
+			if l.lexFunction("tan") {
+				continue
+			}
+		case 'a':
+			if l.lexFunction("asin") {
+				continue
+			}
+			if l.lexFunction("acos") {
+				continue
+			}
+			if l.lexFunction("atan") {
 				continue
 			}
 		}
 
-		switch l.peek() {
+		if ch != 'v' && isAlpha(ch) {
+			l.lexAlphanumeric()
+			continue
+		}
+
+		switch ch {
 		case ' ':
 			l.lexSpace()
 		case ';':
-			l.newTokenConsume(tokenKindSemicolon)
+			l.addTokenConsume(tokenKindSemicolon)
 		case '=':
-			l.newTokenConsume(tokenKindEqual)
+			l.addTokenConsume(tokenKindEqual)
 		case '(':
-			l.newTokenConsume(tokenKindBracketOpen)
+			l.addTokenConsume(tokenKindBracketOpen)
 		case ')':
-			l.newTokenConsume(tokenKindBracketClose)
+			l.addTokenConsume(tokenKindBracketClose)
 		case '+':
-			l.newTokenConsume(tokenKindOperator)
+			l.addTokenConsume(tokenKindOperator)
 		case '-':
-			l.newTokenConsume(tokenKindOperator)
+			l.addTokenConsume(tokenKindOperator)
 		case '*':
 			l.consume()
 			if l.hasNext() && l.peek() == '*' {
 				l.consume()
-				l.newToken(tokenKindOperator, l.idx-2, "**")
+				l.addToken(tokenKindOperator, l.idx-2, "**")
 			} else {
-				l.newToken(tokenKindOperator, l.idx-1, "*")
+				l.addToken(tokenKindOperator, l.idx-1, "*")
 			}
 		case '/':
 			l.consume()
 			if l.hasNext() && l.peek() == '/' {
 				l.consume()
-				l.newToken(tokenKindOperator, l.idx-2, "//")
+				l.addToken(tokenKindOperator, l.idx-2, "//")
 			} else {
-				l.newToken(tokenKindOperator, l.idx-1, "/")
+				l.addToken(tokenKindOperator, l.idx-1, "/")
 			}
 		case '%':
-			l.newTokenConsume(tokenKindOperator)
-		case 'v':
-			l.newTokenConsume(tokenKindOperator)
+			l.addTokenConsume(tokenKindOperator)
 		default:
 			return nil, l.newError("unexpected character")
 		}

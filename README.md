@@ -5,8 +5,9 @@ This is a handy **CLI** calculator for doing quick calculations with **custom op
 ## Usage
 ```bash
 # From stdin
-$ echo 1+1 | c
+$ echo '1+1;2+2' | c
 = 2
+= 4
 
 # With argument
 $ c 1+1
@@ -14,16 +15,23 @@ $ c 1+1
 
 # Or interactively as REPL
 $ c
-Sweet Calculator REPL
 > 1+1
 = 2
 
 > bar=24;45+bar
 = bar = 24
-= 24
-
 = 69
+
+# Up/Down Arrows to navigate history
+> bar=24;45+bar
+
+# Delete input with Ctrl+D
+> |
+
+# Quit with Ctrl-C
+$ |
 ```
+
 ### Operators
 
 - `+` Addition
@@ -35,34 +43,72 @@ Sweet Calculator REPL
 - `**` Power
 - `v` Root (eg: `sqrt(9)` = `2v9`)
 
+### Functions
+
+- `sin` Sine
+- `cos` Cosine
+- `tan` Tangent
+- `asin` Arc sine
+- `acos` Arc cosine
+- `atan` Arc tangent
+
 ### Variables
 
 Variable names must start with a letter and can only contain alphanumeric characters and `_`
 ```bash
 > foo = 2+2
-= 4
+= foo = 4
 
 > foo = foo+foo
-= 8
+= foo = 8
 
-> 2+foo
-= 10
+> sin 2+foo
+= -0.544021
 
 > foo*foo
 = 64
 
 > snake_case_69 = foo
-= 8
+= snake_case_69 = 8
 ```
+
+### Numbers
+
+Floats can start with `.` and the integer part can be spaced with `_`
+```bash
+> .2
+= 0.2
+
+> 0.100001
+= 0.100001
+
+# Display precision of 6 decimal places
+> 0.1000001
+= 0.1
+
+> 2v2
+= 1.414214
+
+> 69_420
+= 69_420
+
+> 33___33
+= 3_333
+
+> 1000000.21
+= 1_000_000.21
+```
+
 ### Syntax sugar
+
 ```python
 # Space significant
 > 1+1 *2
-= (1+1)*2
+# (1+1)*2
 = 4
 
 > 1+1* 2* 4
-= 1+1*(2*(4))
+# 1+1*(2*(4))
 = 9
 
 # Multiplication when next to bracket
@@ -86,12 +132,19 @@ $ c '1+1 1+1'
 error at position 2:
     preprocessor: token: 3: two consecutive operands without operator
     
- $ c '1+1* bar+1'
+$ c '1+1* bar+1'
 
     1+1*(bar+1)
          ^^^
 error at position 5:
     eval tree: undefined variable: "bar"
+
+$ c '2*2+asin 2'
+
+    2*2+asin(2)
+        ^^^^
+error at position 4:
+    eval tree: asin(2) = NaN
 ```
 
 ## Installation
