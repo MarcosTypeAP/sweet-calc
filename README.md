@@ -32,6 +32,8 @@ $ c
 $ |
 ```
 
+> ⚠️ REPL mode is only available for Unix at the moment.
+
 ### Operators
 
 - `+` Addition
@@ -101,7 +103,7 @@ Floats can start with `.` and the integer part can be spaced with `_`
 
 ### Syntax sugar
 
-```python
+```bash
 # Space significant
 > 1+1 *2
 # (1+1)*2
@@ -152,8 +154,9 @@ error at position 4:
 $ git clone git@github.com:MarcosTypeAP/sweet-calc.git --depth=1
 $ cd sweetcalc
 
-$ make build # Must have Go installed
+# Must have Go installed
+$ PREFIX=~/.local/bin make install
 
-$ ./build/c '1+1'
+$ c '1+1'
 = 2
 ```
