@@ -40,7 +40,9 @@ func (p parsingError) Error() string {
 }
 
 func printError(input string, err error, repl bool) {
-	os.Stdout = os.Stderr
+	if !repl {
+		os.Stdout = os.Stderr
+	}
 
 	fmt.Println()
 
@@ -55,7 +57,10 @@ func printError(input string, err error, repl bool) {
 	}
 
 	if perr.pos >= len(input) {
-		input += "_"
+		if perr.pos != len(input) {
+			panic("miscalculated token position")
+		}
+		input += " "
 		perr.size = 1
 	}
 
@@ -147,6 +152,9 @@ func EvalStatement(statement []byte, vars map[string]float64) (res float64, assi
 
 func recalcPositions(tokens []lexerToken, start int) {
 	nextPos := start
+	if start == -1 {
+		nextPos = tokens[0].pos
+	}
 	for i := range tokens {
 		tokens[i].pos = nextPos
 		nextPos += tokens[i].size()

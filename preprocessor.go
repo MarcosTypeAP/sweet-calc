@@ -8,7 +8,6 @@ import (
 type preprocessor struct {
 	inTokens  []lexerToken
 	outTokens []lexerToken
-	firstPos  int
 	idx       int
 }
 
@@ -19,14 +18,9 @@ func newPreprocessor(tokens []lexerToken) preprocessor {
 			spaceCount++
 		}
 	}
-	firstPos := 0
-	if len(tokens) > 0 {
-		firstPos = tokens[0].pos
-	}
 	return preprocessor{
 		inTokens:  tokens,
 		outTokens: make([]lexerToken, 0, len(tokens)+spaceCount*2), // + brackets
-		firstPos:  firstPos,
 	}
 }
 
@@ -138,14 +132,35 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 
 	// merge "-" with the number next to it if it isn't a subtraction
 	for i := 0; i < len(p.inTokens)-1; i++ {
+		prevIdx := i - 1
 		prev := lexerToken{kind: tokenKindInvalid}
-		if i > 0 {
-			prev = p.inTokens[i-1]
+		if prevIdx >= 0 {
+			if p.inTokens[prevIdx].kind == tokenKindSpace {
+				if prevIdx-1 >= 0 {
+					prevIdx--
+					prev = p.inTokens[prevIdx]
+				}
+			} else {
+				prev = p.inTokens[prevIdx]
+			}
 		}
 		curr := p.inTokens[i]
-		next := p.inTokens[i+1]
+		nextIdx := i + 1
+		next := p.inTokens[nextIdx]
 		if curr.text != "-" {
 			continue
+		}
+		if next.kind == tokenKindSpace {
+			if nextIdx+1 >= len(p.inTokens) {
+				recalcPositions(p.inTokens, -1)
+				return p.inTokens, newParsingError(
+					fmt.Sprintf("preprocessor: token: %d: missing operand at the end", i),
+					curr.pos,
+					curr.size(),
+				)
+			}
+			nextIdx++
+			next = p.inTokens[nextIdx]
 		}
 		if next.kind != tokenKindNumber {
 			continue
@@ -153,7 +168,7 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		if prev.kind == tokenKindNumber {
 			continue
 		}
-		p.inTokens[i+1].text = "-" + next.text
+		p.inTokens[nextIdx].text = "-" + next.text
 		p.inTokens = slices.Delete(p.inTokens, i, i+1)
 	}
 
@@ -165,8 +180,8 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		prev := p.inTokens[i-1]
 		next := p.inTokens[i+1]
 		if prev.kind == tokenKindNumber && next.kind == tokenKindNumber {
-			recalcPositions(p.inTokens, p.firstPos)
-			return nil, newParsingError(
+			recalcPositions(p.inTokens, -1)
+			return p.inTokens, newParsingError(
 				fmt.Sprintf("preprocessor: token: %d: two consecutive operands without operator", i),
 				prev.pos,
 				next.pos+next.size()-prev.pos,
@@ -175,28 +190,23 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 	}
 
 	// check there isn't two operators in a row
-	// simplify "-"s
 	for i := 0; i < len(p.inTokens)-1; i++ {
 		curr := p.inTokens[i]
-		nextIdx := i + 1
-		next := p.inTokens[nextIdx]
 		if curr.kind != tokenKindOperator {
 			continue
 		}
+		nextIdx := i + 1
+		next := p.inTokens[nextIdx]
 		if next.kind == tokenKindSpace {
-			if i+2 > len(p.inTokens)-1 {
+			if i+2 >= len(p.inTokens) {
 				break
 			}
 			nextIdx = i + 2
 			next = p.inTokens[nextIdx]
 		}
 		if next.kind == tokenKindOperator {
-			if curr.text == "-" && next.text == "-" {
-				p.inTokens = slices.Delete(p.inTokens, i, nextIdx+1)
-				continue
-			}
-			recalcPositions(p.inTokens, p.firstPos)
-			return nil, newParsingError(
+			recalcPositions(p.inTokens, -1)
+			return p.inTokens, newParsingError(
 				fmt.Sprintf("preprocessor: token: %d: two consecutive operators", i),
 				curr.pos,
 				next.pos+next.size()-curr.pos,
@@ -226,7 +236,7 @@ func (p *preprocessor) process() ([]lexerToken, error) {
 		p.addToken(p.consume())
 	}
 
-	recalcPositions(p.outTokens, p.firstPos)
+	recalcPositions(p.outTokens, -1)
 
 	return p.outTokens, nil
 }
@@ -235,7 +245,7 @@ func PreprocessTokens(tokens []lexerToken) ([]lexerToken, error) {
 	preprocessor := newPreprocessor(tokens)
 	newTokens, err := preprocessor.process()
 	if err != nil {
-		return nil, err
+		return newTokens, err
 	}
 	return newTokens, nil
 }

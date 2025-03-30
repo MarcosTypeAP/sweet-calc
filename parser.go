@@ -257,7 +257,8 @@ func (p *parser) consume() lexerToken {
 
 func (p *parser) newError(msg string) parsingError {
 	if !p.hasNext() {
-		return newParsingError(fmt.Sprintf("parser: token %d: %s", p.idx, msg), len(p.tokens), 1)
+		lastToken := p.lastToken()
+		return newParsingError(fmt.Sprintf("parser: token %d: %s", p.idx, msg), lastToken.pos+lastToken.size(), 1)
 	}
 	token := p.peek()
 	return newParsingError(fmt.Sprintf("parser: token %d: %s", p.idx, msg), token.pos, token.size())

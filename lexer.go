@@ -118,10 +118,7 @@ func isAlphanumeric(char byte) bool {
 func (l *lexer) lexNumber() {
 	s := l.idx
 
-	if l.peek() == '-' {
-		l.consume()
-	}
-	if l.hasNext() && l.peek() == '.' {
+	if l.peek() == '.' {
 		l.consume()
 		for l.hasNext() && isNumber(l.peek()) {
 			l.consume()
