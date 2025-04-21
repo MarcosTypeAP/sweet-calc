@@ -256,9 +256,11 @@ func processInput(input []byte, vars map[string]float64, repl bool) {
 			integerPart := int64(math.Abs(res))
 			decimalPart := math.Abs(res - float64(int64(res)))
 
+			const maxNormalIntegerLength = 5
+
 			str := fmt.Sprint(integerPart)
-			if len(str) > 3 {
-				s := make([]byte, 0, len(str)+len(str)/3+1)
+			if len(str) > maxNormalIntegerLength {
+				s := make([]byte, 0, len(str)+len(str)/maxNormalIntegerLength+1)
 
 				for i := range str {
 					if i%3 == 0 && i > 0 {

@@ -95,7 +95,7 @@ Floats can start with `.` and the integer part can be spaced with `_`
 = 69_420
 
 > 33___33
-= 3_333
+= 3333
 
 > 1000000.21
 = 1_000_000.21
