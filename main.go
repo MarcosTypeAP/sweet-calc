@@ -278,7 +278,7 @@ func processInput(input []byte, vars map[string]float64, repl bool) {
 				str = "-" + str
 			}
 			if decimalPart > 0 {
-				str += strings.TrimRight(strings.TrimLeft(fmt.Sprintf("%.6f", decimalPart), "0"), "0")
+				str += strings.TrimRight(fmt.Sprintf("%.32f", decimalPart)[1:1+7], "0")
 				if str[len(str)-1] == '.' {
 					str += "0"
 				}
